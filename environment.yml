@@ -1,0 +1,10 @@
+dependencies:
+  - bokeh
+  - nbserverproxy
+  - numpy
+  - sympy
+  - tqdm
+  - pscript
+
+channels:
+  - conda-forge
