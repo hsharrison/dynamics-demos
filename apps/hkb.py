@@ -157,7 +157,7 @@ class HKBVisualization:
 
     def get_roots(self):
         """Precalculate the roots to save on CPU and make the animation faster."""
-        roots_path = Path('roots.pickle')
+        roots_path = Path('hkb-roots.pickle')
         if roots_path.exists():
             with roots_path.open('rb') as file:
                 roots = pickle.load(file)
