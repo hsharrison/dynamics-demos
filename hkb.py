@@ -23,7 +23,7 @@ ARROW_SIZE = 15
 
 
 class HKBVisualization:
-    phis_in_pi_units = np.arange(-1.1, 1.101, .001)
+    phis_in_pi_units = np.arange(-0.1, 2.101, .001)
     phis = phis_in_pi_units * np.pi
     b_values = np.arange(0, 0.51, 0.01)
     d_omega_values = np.arange(-1, 1.1, 0.1)
@@ -190,10 +190,12 @@ class HKBVisualization:
         ):
             root = float(root)
             slope = self.numeric_slope(root, b, d_omega)
-            if slope > 0:
+            # We can get away with a lower atol than default, because we don't expect to get values too close to zero
+            # otherwise, and rtol doesn't do anything for us as we are comparing to 0.
+            if np.isclose(slope, 0, atol=1e-5):
+                halfs.append(root)
+            elif slope > 0:
                 repellers.append(root)
-            elif np.isclose(slope, 0):
-                halfs.append(0)
             else:
                 attractors.append(root)
 
@@ -273,6 +275,7 @@ def pi_format():
         '{:.1f}π'.format(tick / 3.14159)
         .replace('1.0', '')
         .replace('0.0π', '0')
+        .replace('.0π', 'π')
         .replace('0.5π', 'π/2')
     )
 
