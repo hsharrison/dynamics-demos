@@ -2,6 +2,7 @@ dependencies:
   - bokeh
   - nbserverproxy
   - numpy
+  - scipy
   - sympy
   - tqdm
   - pscript
