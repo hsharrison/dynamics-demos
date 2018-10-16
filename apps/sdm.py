@@ -64,7 +64,7 @@ class SteeringModelVisualization(VectorFieldVisualization):
         self.numeric_nullcline_eqn = sp.lambdify([self.state_symbols[0], *self.all_symbols[2:]], self.nullcline_eqn)
         self.compiled_eqn = autowrap(sp.Matrix(self.symbolic_eqns), args=self.all_symbols, backend='f2py')
 
-        self.objects_source = models.ColumnDataSource(data=dict(x=[], y=[], color=[]))
+        self.objects_source = models.ColumnDataSource(data=dict(x=[], y=[], color=[], name=[]))
         self.objects_source.on_change('data', self.positions_changed)
         self.trajectory_source = models.ColumnDataSource(data=dict(x=[], y=[]))
 
@@ -113,7 +113,11 @@ class SteeringModelVisualization(VectorFieldVisualization):
         )
 
         drag_tool = models.PointDrawTool(renderers=[objects])
-        self.birdseye_plot.tools = [drag_tool]
+        hover_tool = models.HoverTool(
+            renderers=[objects],
+            tooltips=[('Object', '@name')],
+        )
+        self.birdseye_plot.tools = [drag_tool, hover_tool]
         self.birdseye_plot.toolbar.active_drag = drag_tool
 
         self.sim_button = models.Button(label='Sim')
@@ -211,7 +215,9 @@ class SteeringModelVisualization(VectorFieldVisualization):
     def update_birdseye_plot(self):
         xs, ys = zip(self.position, self.goal_position, *self.obstacles)
         self.objects_source.data = dict(
-            x=list(xs), y=list(ys), color=[AGENT_COLOR, GOAL_COLOR, *(OBSTACLE_COLOR for _ in self.obstacles)]
+            x=list(xs), y=list(ys),
+            color=[AGENT_COLOR, GOAL_COLOR, *(OBSTACLE_COLOR for _ in self.obstacles)],
+            name=['Agent', 'Goal', *('Obstacle' for _ in self.obstacles)],
         )
 
     def sim_button_clicked(self):
