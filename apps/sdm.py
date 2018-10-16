@@ -56,6 +56,7 @@ class SteeringModelVisualization(VectorFieldVisualization):
             match_aspect=True,
             x_range=models.Range1d(min(xs) - PADDING, max(xs) + PADDING),
             y_range=models.Range1d(min(ys) - PADDING, max(ys) + PADDING),
+            title='Top-down view',
         )
         super().__init__()
 

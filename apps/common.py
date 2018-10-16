@@ -49,6 +49,7 @@ class VectorFieldVisualization:
         self.plot = figure(
             width=FIGURE_WIDTH, height=FIGURE_HEIGHT,
             x_range=self.y_range, y_range=self.dy_range,
+            title='Phase portrait',
         )
         self.plot.xaxis.axis_label = 'y'
         self.plot.yaxis.axis_label = 'ý'

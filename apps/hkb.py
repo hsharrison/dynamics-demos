@@ -210,6 +210,7 @@ class HKBVisualization:
         phase_plot = cls.init_phase_plot(
             width=FIGURE_WIDTH, height=FIGURE_HEIGHT,
             x_range=x_range, y_range=phase_y_range,
+            title='Phase portrait',
         )
         phase_plot.xaxis.ticker = x_ticker
         phase_plot.xgrid.ticker = x_ticker
@@ -219,6 +220,7 @@ class HKBVisualization:
             width=FIGURE_WIDTH, height=FIGURE_HEIGHT,
             x_range=x_range, y_range=potential_y_range,
             x_axis_location='above',
+            title='System potential',
         )
         pot_plot.xaxis.ticker = x_ticker
         pot_plot.xgrid.ticker = x_ticker
