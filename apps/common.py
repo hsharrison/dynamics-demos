@@ -66,7 +66,7 @@ class VectorFieldVisualization:
 
     @property
     def symbolic_eqns(self):
-        return NotImplemented
+        raise NotImplementedError
 
     @property
     def all_symbols(self):
