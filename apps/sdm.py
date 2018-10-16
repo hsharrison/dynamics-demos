@@ -5,7 +5,9 @@ from itertools import chain
 from bokeh import layouts, models
 from bokeh.plotting import curdoc, figure
 import numpy as np
+from scipy.integrate import solve_ivp
 import sympy as sp
+from sympy.utilities.autowrap import autowrap
 
 from common import VectorFieldVisualization
 
@@ -19,12 +21,13 @@ NULLCLINE_WIDTH = 3
 INDICATOR_SIZE = 30
 INDICATOR_LINE_WIDTH = 5
 TRAJECTORY_LINE_WIDTH = 3
+GOAL_COLLISION_RADIUS = 0.2
 
 
 class SteeringModelVisualization(VectorFieldVisualization):
     arrow_scale = .025
     nullcline_density = .01
-    state_symbols = sp.symbols('φ, dφ, x, y')
+    state_symbols = sp.symbols('phi, dphi, x, y')
     y_range = -3.14, 3.14
     default_params = dict(
         b=3.25,
@@ -45,10 +48,20 @@ class SteeringModelVisualization(VectorFieldVisualization):
         self.speed = speed
         self.params = self.default_params
         self.params.update(param_values or {})
+
+        xs = [start_position[0], goal_position[0], *(o[0] for o in obstacles)]
+        ys = [start_position[1], goal_position[1], *(o[1] for o in obstacles)]
+        self.birdseye_plot = figure(
+            width=FIGURE_WIDTH,
+            match_aspect=True,
+            x_range=models.Range1d(min(xs) - PADDING, max(xs) + PADDING),
+            y_range=models.Range1d(min(ys) - PADDING, max(ys) + PADDING),
+        )
         super().__init__()
 
         self.numeric_eqn = sp.lambdify(self.all_symbols, sp.Matrix(self.symbolic_eqns))
         self.numeric_nullcline_eqn = sp.lambdify([self.state_symbols[0], *self.all_symbols[2:]], self.nullcline_eqn)
+        self.compiled_eqn = autowrap(sp.Matrix(self.symbolic_eqns), args=self.all_symbols, backend='f2py')
 
         self.objects_source = models.ColumnDataSource(data=dict(x=[], y=[], color=[]))
         self.objects_source.on_change('data', self.positions_changed)
@@ -57,6 +70,7 @@ class SteeringModelVisualization(VectorFieldVisualization):
         self.angle_indicator_source = models.ColumnDataSource(data=dict(x=[], y=[], color=[]))
         self.nullcline_source = models.ColumnDataSource(data=dict(x=[], y=[]))
 
+        self.plot.width = FIGURE_WIDTH
         self.plot.width = FIGURE_WIDTH
         self.plot.xaxis.axis_label = 'φ'
         self.plot.yaxis.axis_label = 'dφ/dt'
@@ -83,14 +97,6 @@ class SteeringModelVisualization(VectorFieldVisualization):
                 line_dash='dashed',
             ))
 
-        xs = [start_position[0], goal_position[0], *(o[0] for o in obstacles)]
-        ys = [start_position[1], goal_position[1], *(o[1] for o in obstacles)]
-        self.birdseye_plot = figure(
-            width=FIGURE_WIDTH,
-            match_aspect=True,
-            x_range=models.Range1d(min(xs) - PADDING, max(xs) + PADDING),
-            y_range=models.Range1d(min(ys) - PADDING, max(ys) + PADDING),
-        )
         self.birdseye_plot.axis.visible = False
         self.birdseye_plot.grid.visible = False
 
@@ -105,9 +111,9 @@ class SteeringModelVisualization(VectorFieldVisualization):
             color=AGENT_COLOR,
         )
 
-        self.birdseye_plot.tools = [
-            models.PointDrawTool(renderers=[objects]),
-        ]
+        drag_tool = models.PointDrawTool(renderers=[objects])
+        self.birdseye_plot.tools = [drag_tool]
+        self.birdseye_plot.toolbar.active_drag = drag_tool
 
         self.sim_button = models.Button(label='Sim')
         self.sim_button.on_click(self.sim_button_clicked)
@@ -115,6 +121,21 @@ class SteeringModelVisualization(VectorFieldVisualization):
         self.clear_button.on_click(self.clear_button_clicked)
 
         self.update_birdseye_plot()
+
+    def setup_trajectory_glyphs(self, start_source, trajectory_source):
+        self.birdseye_plot.multi_line(
+            xs='xs', ys='ys',
+            source=trajectory_source,
+            line_width=TRAJECTORY_LINE_WIDTH,
+            line_color=AGENT_COLOR,
+        )
+        self.birdseye_plot.circle(
+            x='x', y='y',
+            source=start_source,
+            fill_color=None,
+            line_color=AGENT_COLOR,
+            size=CIRCLE_SIZE,
+        )
 
     @property
     def all_symbols(self):
@@ -153,7 +174,13 @@ class SteeringModelVisualization(VectorFieldVisualization):
         return (self.symbolic_eqns[1] + self.params['b'] * self.state_symbols[1]).simplify() / self.params['b']
 
     def as_layout(self):
-        return layouts.row(self.plot, self.birdseye_plot)
+        return layouts.row(
+            self.plot,
+            layouts.column(
+                self.birdseye_plot,
+                layouts.row(self.sim_button, self.clear_button),
+            ),
+        )
 
     def positions_changed(self, attr, old, new):
         self.position = new['x'][0], new['y'][0]
@@ -185,6 +212,38 @@ class SteeringModelVisualization(VectorFieldVisualization):
         self.objects_source.data = dict(
             x=list(xs), y=list(ys), color=[AGENT_COLOR, GOAL_COLOR, *(OBSTACLE_COLOR for _ in self.obstacles)]
         )
+
+    def sim_button_clicked(self):
+        self.trajectory_starts_source.stream(dict(
+            x=[self.position[0]], y=[self.position[1]],
+        ))
+        for phi0 in np.linspace(-np.pi, np.pi, 12):
+            trajectory = self.simulate(phi0)
+            self.trajectories_source.stream(dict(
+                xs=[trajectory[2].tolist()],
+                ys=[trajectory[3].tolist()],
+            ))
+
+    def clear_button_clicked(self):
+        self.clear_simulations()
+
+    def plot_clicked(self, event):
+        # Disable the usual sim-to-click behavior of the parent class.
+        pass
+
+    def simulate(self, phi0):
+        y0 = [phi0, 0, *self.position]
+        solution = solve_ivp(self.get_ode(), (0, self.t_slider.value), y0, max_step=.01)
+        trajectory = solution.y
+        # Crop trajectory
+        goal_distance, goal_angle = polar_vec(trajectory[2:], self.goal_position, numeric=True)
+        in_radius = goal_distance < GOAL_COLLISION_RADIUS
+        if in_radius.any():
+            trajectory = trajectory[:, :np.argmax(in_radius)]
+        return trajectory
+
+    def get_ode(self):
+        return lambda t, y: self.compiled_eqn(*y, *self.position_values[2:]).squeeze()
 
 
 def polar_vec(position_a, position_b, numeric=False):
