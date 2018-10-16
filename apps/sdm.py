@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-from functools import lru_cache
 from itertools import chain
 
-from bokeh import layouts, models
+from bokeh import events, layouts, models
 from bokeh.plotting import curdoc, figure
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -60,9 +59,10 @@ class SteeringModelVisualization(VectorFieldVisualization):
         )
         super().__init__()
 
-        self.numeric_eqn = sp.lambdify(self.all_symbols, sp.Matrix(self.symbolic_eqns))
-        self.numeric_nullcline_eqn = sp.lambdify([self.state_symbols[0], *self.all_symbols[2:]], self.nullcline_eqn)
-        self.compiled_eqn = autowrap(sp.Matrix(self.symbolic_eqns), args=self.all_symbols, backend='f2py')
+        self.numeric_eqn = None
+        self.numeric_nullcline_eqn =None
+        self.compiled_eqn = None
+        self.compile()
 
         self.objects_source = models.ColumnDataSource(data=dict(x=[], y=[], color=[], name=[]))
         self.objects_source.on_change('data', self.positions_changed)
@@ -100,6 +100,7 @@ class SteeringModelVisualization(VectorFieldVisualization):
 
         self.birdseye_plot.axis.visible = False
         self.birdseye_plot.grid.visible = False
+        self.birdseye_plot.on_event(events.DoubleTap, self.on_doubleclick)
 
         objects = self.birdseye_plot.circle(
             x='x', y='y', color='color',
@@ -127,6 +128,11 @@ class SteeringModelVisualization(VectorFieldVisualization):
 
         self.update_birdseye_plot()
 
+    def compile(self):
+        self.numeric_eqn = sp.lambdify(self.all_symbols, sp.Matrix(self.symbolic_eqns))
+        self.numeric_nullcline_eqn = sp.lambdify([self.state_symbols[0], *self.all_symbols[2:]], self.nullcline_eqn)
+        self.compiled_eqn = autowrap(sp.Matrix(self.symbolic_eqns), args=self.all_symbols, backend='f2py')
+
     def setup_trajectory_glyphs(self, start_source, trajectory_source):
         self.birdseye_plot.multi_line(
             xs='xs', ys='ys',
@@ -151,7 +157,6 @@ class SteeringModelVisualization(VectorFieldVisualization):
         return [*self.position, *self.goal_position, *chain.from_iterable(self.obstacles)]
 
     @property
-    @lru_cache()
     def symbolic_eqns(self):
         phi, dphi, x, y = self.state_symbols
 
@@ -224,7 +229,7 @@ class SteeringModelVisualization(VectorFieldVisualization):
         self.trajectory_starts_source.stream(dict(
             x=[self.position[0]], y=[self.position[1]],
         ))
-        for phi0 in np.linspace(-np.pi, np.pi, 12):
+        for phi0 in np.linspace(-np.pi, np.pi, 8):
             trajectory = self.simulate(phi0)
             self.trajectories_source.stream(dict(
                 xs=[trajectory[2].tolist()],
@@ -252,6 +257,15 @@ class SteeringModelVisualization(VectorFieldVisualization):
     def get_ode(self):
         return lambda t, y: self.compiled_eqn(*y, *self.position_values[2:]).squeeze()
 
+    def on_doubleclick(self, event):
+        print('Adding obstacle...', end='')
+        i = len(self.obstacles)
+        self.obstacles.append((event.x, event.y))
+        self.obstacle_symbols.append(sp.symbols(f'o{i}x, o{i}y'))
+        self.compile()
+        self.update_birdseye_plot()
+        print('done.')
+
 
 def polar_vec(position_a, position_b, numeric=False):
     if numeric:
@@ -271,7 +285,7 @@ def main():
     vis = SteeringModelVisualization(
         start_position=(0, 0),
         goal_position=(2, 7),
-        obstacles=[(-1, 0), (1, 3)],
+        obstacles=[(1, 3)],
     )
     curdoc().add_root(vis.as_layout())
 
