@@ -58,6 +58,7 @@ class SteeringModelVisualization(VectorFieldVisualization):
             title='Top-down view',
         )
         super().__init__()
+        self.t_slider.value = 20  # Simulation length.
 
         self.numeric_eqn = None
         self.numeric_nullcline_eqn =None
@@ -286,6 +287,7 @@ def main():
         start_position=(0, 0),
         goal_position=(2, 7),
         obstacles=[(1, 3)],
+        speed=0.5,
     )
     curdoc().add_root(vis.as_layout())
 
