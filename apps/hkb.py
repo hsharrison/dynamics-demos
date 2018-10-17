@@ -120,6 +120,7 @@ class HKBVisualization:
             self.phase_plot,
             self.pot_plot,
             layouts.widgetbox([self.b_slider, self.d_omega_slider]),
+            sizing_mode='stretch_both',
         )
 
     def on_slider_change(self, attr, old, new):
