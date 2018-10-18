@@ -12,12 +12,12 @@ from tqdm import tqdm
 
 AXIS_TITLE_FONT_SIZE = '22pt'
 AXIS_TICK_FONT_SIZE = '14pt'
-FIGURE_WIDTH = 800
-FIGURE_HEIGHT = 400
+FIGURE_WIDTH = 1200
+FIGURE_HEIGHT = 600
 LINE_WIDTH = 3
 CIRCLE_LINE_WIDTH = 2
 CIRCLE_SIZE = 20
-CIRCLE_HEIGHT = 0.085
+CIRCLE_HEIGHT = 0.17
 ARROW_SIZE = 15
 
 
@@ -27,7 +27,7 @@ class HKBVisualization:
     b_values = np.arange(0, 0.51, 0.01)
     d_omega_values = np.arange(-1, 1.1, 0.1)
 
-    def __init__(self, phase_y_range=(-2, 2), potential_y_range=(-2, 2)):
+    def __init__(self, phase_y_range=(-2.5, 2.5), potential_y_range=(-2.5, 2.5)):
         phi, b, d_omega = sp.symbols('phi, b, Delta_omega')
         self.state_symbol = phi
         self.param_symbols = b, d_omega
@@ -61,25 +61,29 @@ class HKBVisualization:
 
         # Draw all the glyphs.
         for plot, y in [(self.phase_plot, 'phase'), (self.pot_plot, 'v')]:
+            if y == 'v':
+                y_circle = 'v_circle'
+            else:
+                y_circle = y
             plot.line(
                 x='x', y=y,
                 source=self.line_source,
                 line_width=LINE_WIDTH,
             )
             plot.circle(
-                x='x', y=y,
+                x='x', y=y_circle,
                 source=self.attractor_source,
                 size=CIRCLE_SIZE,
             )
             plot.circle(
-                x='x', y=y,
+                x='x', y=y_circle,
                 source=self.repeller_source,
                 size=CIRCLE_SIZE,
                 fill_color=None,
                 line_width=CIRCLE_LINE_WIDTH,
             )
             plot.circle(
-                x='x', y=y,
+                x='x', y=y_circle,
                 source=self.half_source,
                 size=CIRCLE_SIZE,
                 fill_color=None,
@@ -103,23 +107,28 @@ class HKBVisualization:
 
         self.b_slider = models.Slider(
             start=self.b_values[0], end=self.b_values[-1], step=self.b_values[1] - self.b_values[0],
-            value=0,
+            value=0.5,
             title='b',
+            width=FIGURE_WIDTH // 2,
         )
         self.d_omega_slider = models.Slider(
             start=self.d_omega_values[0], end=self.d_omega_values[-1],
             step=self.d_omega_values[1] - self.d_omega_values[0],
             value=0,
             title='Δω',
+            width=FIGURE_WIDTH // 2,
         )
         self.b_slider.on_change('value', self.on_slider_change)
         self.d_omega_slider.on_change('value', self.on_slider_change)
 
+        self.update_sources()
+
     def as_layout(self):
         return layouts.column(
+            models.widgets.Div(text='<img src="apps/hkb/static/hkb.png">'),
             self.phase_plot,
             self.pot_plot,
-            layouts.widgetbox([self.b_slider, self.d_omega_slider]),
+            layouts.widgetbox([self.b_slider, self.d_omega_slider], sizing_mode='fixed'),
             sizing_mode='stretch_both',
         )
 
@@ -150,10 +159,12 @@ class HKBVisualization:
         )
 
     def data_from_phis(self, phis, b, d_omega):
+        v = self.numeric_pot(phis, b, d_omega)
         return dict(
             x=phis,
             phase=self.numeric_eqn(phis, b, d_omega),
-            v=self.numeric_pot(phis, b, d_omega),
+            v=v,
+            v_circle=self.numeric_pot(phis, b, d_omega) + CIRCLE_HEIGHT,
         )
 
     def get_roots(self):
@@ -212,6 +223,7 @@ class HKBVisualization:
             width=FIGURE_WIDTH, height=FIGURE_HEIGHT,
             x_range=x_range, y_range=phase_y_range,
             title='Phase portrait',
+            toolbar_location=None,
         )
         phase_plot.xaxis.ticker = x_ticker
         phase_plot.xgrid.ticker = x_ticker
@@ -222,6 +234,7 @@ class HKBVisualization:
             x_range=x_range, y_range=potential_y_range,
             x_axis_location='above',
             title='System potential',
+            toolbar_location=None,
         )
         pot_plot.xaxis.ticker = x_ticker
         pot_plot.xgrid.ticker = x_ticker

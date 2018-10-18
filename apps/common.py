@@ -7,8 +7,9 @@ import sympy as sp
 
 AXIS_TITLE_FONT_SIZE = '22pt'
 AXIS_TICK_FONT_SIZE = '14pt'
-FIGURE_WIDTH = 800
-FIGURE_HEIGHT = 800
+FIGURE_WIDTH = 500
+FIGURE_HEIGHT = 500
+SLIDER_WIDTH = FIGURE_WIDTH // 2
 VECTOR_LINE_WIDTH = 1
 TRAJECTORY_LINE_WIDTH = 2
 TIME_SLIDER_PARAMS = dict(start=2, end=20, step=0.1, value=10)
@@ -20,7 +21,7 @@ class VectorFieldVisualization:
     vector_density = 16, 16
     arrow_scale = 0.08
 
-    state_symbols = sp.symbols('y, ý')
+    state_symbols = sp.symbols('y, ẏ')
 
     param_symbols = []
     param_ranges = []
@@ -50,9 +51,10 @@ class VectorFieldVisualization:
             width=FIGURE_WIDTH, height=FIGURE_HEIGHT,
             x_range=self.y_range, y_range=self.dy_range,
             title='Phase portrait',
+            toolbar_location=None,
         )
         self.plot.xaxis.axis_label = 'y'
-        self.plot.yaxis.axis_label = 'ý'
+        self.plot.yaxis.axis_label = 'ẏ'
         self.plot.axis.axis_label_text_font_size = AXIS_TITLE_FONT_SIZE
         self.plot.axis.major_label_text_font_size = AXIS_TICK_FONT_SIZE
 
@@ -68,6 +70,7 @@ class VectorFieldVisualization:
 
         self.t_slider = models.Slider(
             title='Trajectory duration',
+            width=SLIDER_WIDTH,
             **TIME_SLIDER_PARAMS,
         )
 
@@ -78,6 +81,7 @@ class VectorFieldVisualization:
             slider = models.Slider(
                 start=range_[0], end=range_[1], step=step, value=value,
                 title=str(param),
+                width=SLIDER_WIDTH,
             )
             slider.on_change('value', self.on_slider_change)
             self.param_sliders[param] = slider
@@ -107,15 +111,15 @@ class VectorFieldVisualization:
     def param_values(self):
         return {param: slider.value for param, slider in self.param_sliders.items()}
 
-    @property
-    def param_slider_box(self):
-        return layouts.widgetbox(*self.param_sliders.values())
-
     def as_layout(self):
         return layouts.column(
             self.plot,
-            self.param_slider_box,
-            self.t_slider,
+            layouts.widgetbox(
+                *self.param_sliders.values(),
+                self.t_slider,
+                sizing_mode='fixed',
+            ),
+            sizing_mode='scale_height',
         )
 
     def on_slider_change(self, attr, old, new):
