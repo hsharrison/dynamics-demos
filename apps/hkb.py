@@ -90,7 +90,7 @@ class HKBVisualization:
                 line_width=CIRCLE_LINE_WIDTH,
             )
             plot.wedge(
-                x='x', y=y,
+                x='x', y=y_circle,
                 source=self.half_source,
                 radius=CIRCLE_SIZE / 2,
                 start_angle=-np.pi / 2,
