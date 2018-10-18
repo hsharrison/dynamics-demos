@@ -125,7 +125,6 @@ class HKBVisualization:
 
     def as_layout(self):
         return layouts.column(
-            models.widgets.Div(text='<img src="apps/hkb/static/hkb.png">'),
             self.phase_plot,
             self.pot_plot,
             layouts.widgetbox([self.b_slider, self.d_omega_slider], sizing_mode='fixed'),
